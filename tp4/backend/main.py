@@ -12,7 +12,7 @@ DATABASE_URL = os.getenv(
     "postgresql://postgres:Nicolasxd22@localhost:5432/registro_eventos"
 )
 
-engine = create_engine("postgresql://postgres:Nicolasxd22@localhost:5432/registro_eventos")
+engine = create_engine("postgresql+psycopg://postgres:Nicolasxd22@localhost:5432/registro_eventos")
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -118,6 +118,27 @@ def crear_participante(datos: ParticipanteCreate, db: Session = Depends(get_db))
     db.commit()
     db.refresh(nuevo)
     return ParticipanteResponse.from_orm_custom(nuevo)
+
+@app.put("/participantes/{id}", response_model=ParticipanteResponse)
+def actualizar_participante(id: int, datos: ParticipanteCreate, db: Session = Depends(get_db)):
+    participante = db.query(ParticipanteDB).filter(ParticipanteDB.id == id).first()
+
+    if not participante:
+        raise HTTPException(status_code=404, detail="Participante no encontrado")
+
+    participante.nombre = datos.nombre
+    participante.email = datos.email
+    participante.edad = datos.edad
+    participante.pais = datos.pais
+    participante.modalidad = datos.modalidad
+    participante.tecnologias = datos.tecnologias
+    participante.nivel = datos.nivel
+    participante.acepta_terminos = datos.aceptaTerminos
+
+    db.commit()
+    db.refresh(participante)
+
+    return ParticipanteResponse.from_orm_custom(participante)
 
 
 @app.delete("/participantes/{id}", status_code=204)

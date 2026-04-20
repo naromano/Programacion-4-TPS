@@ -1,86 +1,95 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useReducer } from "react";
 import type { Participante, ParticipanteNuevo } from "../models/Participante";
+import { participantesReducer, initialState } from "./participantesReducer";
 
 const API_URL = "http://127.0.0.1:8000";
 
-// ─── Tipo del contexto ───────────────────────────────────────────────────────
 interface ContextType {
   participantes: Participante[];
   cargando: boolean;
   error: string | null;
   agregar: (p: ParticipanteNuevo) => Promise<void>;
   eliminar: (id: number) => Promise<void>;
-  resetear: () => Promise<void>;
+  editar: (p: Participante) => Promise<void>;
+  editando: Participante | null;
+  setEditando: (p: Participante | null) => void;
 }
 
-// ─── Crear contexto ──────────────────────────────────────────────────────────
 const ParticipantesContext = createContext<ContextType | null>(null);
 
-// ─── Provider ────────────────────────────────────────────────────────────────
 export function ParticipantesProvider({ children }: { children: React.ReactNode }) {
-  const [participantes, setParticipantes] = useState<Participante[]>([]);
-  const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(participantesReducer, initialState);
 
-  // Cargar participantes al montar
   useEffect(() => {
     cargarParticipantes();
   }, []);
 
   async function cargarParticipantes() {
-    setCargando(true);
-    setError(null);
+    dispatch({ type: "LOADING", payload: true });
+
     try {
       const res = await fetch(`${API_URL}/participantes`);
-      if (!res.ok) throw new Error("Error al obtener participantes");
       const data: Participante[] = await res.json();
-      setParticipantes(data);
+      dispatch({ type: "SET", payload: data });
     } catch (e: any) {
-      setError(e.message ?? "Error de conexión con el servidor");
+      dispatch({ type: "ERROR", payload: e.message });
     } finally {
-      setCargando(false);
+      dispatch({ type: "LOADING", payload: false });
     }
   }
 
   async function agregar(nuevo: ParticipanteNuevo) {
-    setError(null);
     const res = await fetch(`${API_URL}/participantes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(nuevo),
     });
-    if (!res.ok) throw new Error("Error al crear participante");
+
     const creado: Participante = await res.json();
-    setParticipantes((prev) => [...prev, creado]);
+    dispatch({ type: "AGREGAR", payload: creado });
   }
 
   async function eliminar(id: number) {
-    setError(null);
-    const res = await fetch(`${API_URL}/participantes/${id}`, {
+    await fetch(`${API_URL}/participantes/${id}`, {
       method: "DELETE",
     });
-    if (!res.ok) throw new Error("Error al eliminar participante");
-    setParticipantes((prev) => prev.filter((p) => p.id !== id));
+
+    dispatch({ type: "ELIMINAR", payload: id });
   }
 
-  async function resetear() {
-    // Eliminar todos uno por uno
-    for (const p of participantes) {
-      await fetch(`${API_URL}/participantes/${p.id}`, { method: "DELETE" });
-    }
-    setParticipantes([]);
+  async function editar(p: Participante) {
+    const res = await fetch(`${API_URL}/participantes/${p.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(p),
+    });
+
+    const actualizado: Participante = await res.json();
+    dispatch({ type: "EDITAR", payload: actualizado });
   }
+
+  const setEditando = (p: Participante | null) => {
+    dispatch({ type: "SET_EDITANDO", payload: p });
+  };
 
   return (
     <ParticipantesContext.Provider
-      value={{ participantes, cargando, error, agregar, eliminar, resetear }}
+      value={{
+        participantes: state.participantes,
+        cargando: state.cargando,
+        error: state.error,
+        agregar,
+        eliminar,
+        editar,
+        editando: state.editando,
+        setEditando,
+      }}
     >
       {children}
     </ParticipantesContext.Provider>
   );
 }
 
-// ─── Hook personalizado ──────────────────────────────────────────────────────
 export function useParticipantes() {
   const ctx = useContext(ParticipantesContext);
   if (!ctx) throw new Error("useParticipantes debe usarse dentro de ParticipantesProvider");
