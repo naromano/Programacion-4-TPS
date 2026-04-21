@@ -14,8 +14,29 @@ function ParticipanteCard({ participante }: { participante: Participante }) {
   return (
     <div className="bg-white shadow rounded p-4 hover:shadow-lg transition">
       <h3 className="text-xl font-bold mb-2">{p.nombre}</h3>
+
       <p>{p.email}</p>
       <p>Edad: {p.edad}</p>
+      <p>País: {p.pais}</p>
+
+      {/* 🔥 MODALIDAD */}
+      <p>Modalidad: {p.modalidad}</p>
+
+      {/* 🔥 NIVEL */}
+      <div className="mb-2">
+        <span className="font-medium">Nivel: </span>
+        <span className={`px-2 py-1 rounded text-sm ${colorNivel(p.nivel)}`}>
+          {p.nivel}
+        </span>
+      </div>
+
+      {/* 🔥 TECNOLOGÍAS */}
+      <div className="mb-2">
+        <span className="font-medium">Tecnologías: </span>
+        {p.tecnologias.length > 0
+          ? p.tecnologias.join(" - ")
+          : "No indicó"}
+      </div>
 
       <div className="flex gap-2 mt-4">
         <button
