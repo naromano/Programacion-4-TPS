@@ -17,7 +17,6 @@ function Formulario() {
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
-  // 🔥 CARGA AUTOMÁTICA AL EDITAR
   useEffect(() => {
     if (editando) {
       setNombre(editando.nombre);
@@ -46,7 +45,7 @@ function Formulario() {
     setTecnologias([]);
     setNivel("Principiante");
     setAceptaTerminos(false);
-    setEditando(null); // 🔥 IMPORTANTE
+    setEditando(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

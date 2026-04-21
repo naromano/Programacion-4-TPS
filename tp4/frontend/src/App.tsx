@@ -5,7 +5,6 @@ import Filtros from "./components/Filtros";
 import ParticipanteCard from "./components/ParticipanteCard";
  
 function App() {
-  // ✅ Todo viene del contexto — sin localStorage, sin props drilling
   const { participantes, cargando, error, eliminar, resetear } = useParticipantes();
  
   const [buscarNombre, setBuscarNombre]       = useState("");
