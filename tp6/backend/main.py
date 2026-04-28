@@ -1,18 +1,15 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ARRAY
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, ARRAY, Text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from pydantic import BaseModel
 from typing import List, Optional
 import os
 
 # ─── Base de datos ──────────────────────────────────────────────────────────────
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres:Nicolasxd22@localhost:5432/registro_eventos"
+engine = create_engine(
+    "postgresql+pg8000://postgres:191700faB@localhost:5432/registro_eventos"
 )
-
-engine = create_engine("postgresql+psycopg://postgres:Nicolasxd22@localhost:5432/registro_eventos")
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
