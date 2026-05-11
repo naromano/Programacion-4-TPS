@@ -1,39 +1,64 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ARRAY, Text
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from pydantic import BaseModel
-from typing import List, Optional
-import os
+from typing import List
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from datetime import datetime, timedelta
 
-# ─── Base de datos ──────────────────────────────────────────────────────────────
+
+SECRET_KEY = "supersecretkey123"   
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+bearer_scheme = HTTPBearer()
+
 engine = create_engine(
-    "postgresql+pg8000://postgres:191700faB@localhost:5432/registro_eventos"
+    "postgresql+pg8000://postgres:Nicolasxd22@localhost:5432/tp7"
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-# ─── Modelo ORM ─────────────────────────────────────────────────────────────────
+class UsuarioDB(Base):
+    __tablename__ = "usuarios_db"
+
+    id       = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)   # guardado con hash bcrypt
+    rol      = Column(String, nullable=False)   # "ADMIN" o "CONSULTA"
+
+
 class ParticipanteDB(Base):
     __tablename__ = "participantes"
 
-    id          = Column(Integer, primary_key=True, index=True)
-    nombre      = Column(String, nullable=False)
-    email       = Column(String, nullable=False)
-    edad        = Column(Integer, nullable=False)
-    pais        = Column(String, nullable=False)
-    modalidad   = Column(String, nullable=False)
-    tecnologias = Column(ARRAY(String), default=[])
-    nivel       = Column(String, nullable=False)
+    id              = Column(Integer, primary_key=True, index=True)
+    nombre          = Column(String, nullable=False)
+    email           = Column(String, nullable=False)
+    edad            = Column(Integer, nullable=False)
+    pais            = Column(String, nullable=False)
+    modalidad       = Column(String, nullable=False)
+    tecnologias     = Column(ARRAY(String), default=[])
+    nivel           = Column(String, nullable=False)
     acepta_terminos = Column(Boolean, default=False)
 
 
-# Crear tablas al arrancar
 Base.metadata.create_all(bind=engine)
 
 
-# ─── Schemas Pydantic ────────────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    usuario: str
+    password: str
+
+class TokenResponse(BaseModel):
+    token: str
+    rol: str
+
 class ParticipanteCreate(BaseModel):
     nombre: str
     email: str
@@ -43,7 +68,6 @@ class ParticipanteCreate(BaseModel):
     tecnologias: List[str] = []
     nivel: str
     aceptaTerminos: bool
-
 
 class ParticipanteResponse(BaseModel):
     id: int
@@ -70,9 +94,7 @@ class ParticipanteResponse(BaseModel):
             aceptaTerminos=obj.acepta_terminos,
         )
 
-    class Config:
-        from_attributes = True
-# ─── App ─────────────────────────────────────────────────────────────────────────
+
 app = FastAPI(title="Registro de Eventos API")
 
 app.add_middleware(
@@ -91,58 +113,113 @@ def get_db():
         db.close()
 
 
-# ─── Endpoints ───────────────────────────────────────────────────────────────────
-from fastapi import Depends
+
+def crear_token(data: dict) -> str:
+    payload = data.copy()
+    payload["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def verificar_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload 
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+
+def seed_usuarios():
+    db = SessionLocal()
+    if db.query(UsuarioDB).count() == 0:
+        usuarios = [
+            UsuarioDB(username="hernanxd22", password=pwd_context.hash("hola123"),    rol="ADMIN"),
+            UsuarioDB(username="consulta",   password=pwd_context.hash("consulta123"), rol="CONSULTA"),
+        ]
+        db.add_all(usuarios)
+        db.commit()
+    db.close()
+
+seed_usuarios()
+
+
+@app.post("/login", response_model=TokenResponse)
+def login(datos: LoginRequest, db: Session = Depends(get_db)):
+    usuario = db.query(UsuarioDB).filter(UsuarioDB.username == datos.usuario).first()
+
+    if not usuario or not pwd_context.verify(datos.password, usuario.password):
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+
+    token = crear_token({"sub": usuario.username, "rol": usuario.rol})
+    return { "token": token, "rol": usuario.rol }
+
 
 @app.get("/participantes", response_model=List[ParticipanteResponse])
-def obtener_participantes(db: Session = Depends(get_db)):
-    participantes = db.query(ParticipanteDB).all()
-    return [ParticipanteResponse.from_orm_custom(p) for p in participantes]
+def obtener_participantes(
+    db: Session = Depends(get_db),
+    payload = Depends(verificar_token)  
+):
+    return [ParticipanteResponse.from_orm_custom(p) for p in db.query(ParticipanteDB).all()]
+
 
 @app.post("/participantes", response_model=ParticipanteResponse, status_code=201)
-def crear_participante(datos: ParticipanteCreate, db: Session = Depends(get_db)):
+def crear_participante(
+    datos: ParticipanteCreate,
+    db: Session = Depends(get_db),
+    payload = Depends(verificar_token)   
+):
+    if payload["rol"] != "ADMIN":
+        raise HTTPException(status_code=403, detail="Solo ADMIN puede crear participantes")
+
     nuevo = ParticipanteDB(
-        nombre=datos.nombre,
-        email=datos.email,
-        edad=datos.edad,
-        pais=datos.pais,
-        modalidad=datos.modalidad,
-        tecnologias=datos.tecnologias,
-        nivel=datos.nivel,
-        acepta_terminos=datos.aceptaTerminos,
+        nombre=datos.nombre, email=datos.email, edad=datos.edad,
+        pais=datos.pais, modalidad=datos.modalidad, tecnologias=datos.tecnologias,
+        nivel=datos.nivel, acepta_terminos=datos.aceptaTerminos,
     )
     db.add(nuevo)
     db.commit()
     db.refresh(nuevo)
     return ParticipanteResponse.from_orm_custom(nuevo)
 
-@app.put("/participantes/{id}", response_model=ParticipanteResponse)
-def actualizar_participante(id: int, datos: ParticipanteCreate, db: Session = Depends(get_db)):
-    participante = db.query(ParticipanteDB).filter(ParticipanteDB.id == id).first()
 
+@app.put("/participantes/{id}", response_model=ParticipanteResponse)
+def actualizar_participante(
+    id: int,
+    datos: ParticipanteCreate,
+    db: Session = Depends(get_db),
+    payload = Depends(verificar_token)   
+):
+    if payload["rol"] != "ADMIN":
+        raise HTTPException(status_code=403, detail="Solo ADMIN puede editar participantes")
+
+    participante = db.query(ParticipanteDB).filter(ParticipanteDB.id == id).first()
     if not participante:
         raise HTTPException(status_code=404, detail="Participante no encontrado")
 
-    participante.nombre = datos.nombre
-    participante.email = datos.email
-    participante.edad = datos.edad
-    participante.pais = datos.pais
-    participante.modalidad = datos.modalidad
-    participante.tecnologias = datos.tecnologias
-    participante.nivel = datos.nivel
+    participante.nombre          = datos.nombre
+    participante.email           = datos.email
+    participante.edad            = datos.edad
+    participante.pais            = datos.pais
+    participante.modalidad       = datos.modalidad
+    participante.tecnologias     = datos.tecnologias
+    participante.nivel           = datos.nivel
     participante.acepta_terminos = datos.aceptaTerminos
 
     db.commit()
     db.refresh(participante)
-
     return ParticipanteResponse.from_orm_custom(participante)
 
 
 @app.delete("/participantes/{id}", status_code=204)
-def eliminar_participante(id: int, db: Session = Depends(get_db)):
-    """DELETE /participantes/{id} — Elimina un participante por ID"""
+def eliminar_participante(
+    id: int,
+    db: Session = Depends(get_db),
+    payload = Depends(verificar_token)   
+):
+    if payload["rol"] != "ADMIN":
+        raise HTTPException(status_code=403, detail="Solo ADMIN puede eliminar participantes")
+
     participante = db.query(ParticipanteDB).filter(ParticipanteDB.id == id).first()
     if not participante:
         raise HTTPException(status_code=404, detail="Participante no encontrado")
+
     db.delete(participante)
     db.commit()

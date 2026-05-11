@@ -5,7 +5,10 @@ import { Link } from "react-router-dom";
 
 export default function FormularioPage() {
   const navigate = useNavigate();
-
+  const logout = () => {
+  localStorage.removeItem("auth");
+  navigate("/login");
+  };
   return (
     <div className="max-w-4xl mx-auto p-6">
       <ThemeToggle />
@@ -22,4 +25,5 @@ export default function FormularioPage() {
       <Formulario onSuccess={() => navigate("/")} />
     </div>
   );
+  
 }

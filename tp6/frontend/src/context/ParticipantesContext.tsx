@@ -4,6 +4,14 @@ import { participantesReducer, initialState } from "./participantesReducer";
 
 const API_URL = "http://127.0.0.1:8000";
 
+
+function authHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${localStorage.getItem("token")}`,
+  };
+}
+
 interface ContextType {
   participantes: Participante[];
   cargando: boolean;
@@ -13,6 +21,7 @@ interface ContextType {
   editar: (p: Participante) => Promise<void>;
   editando: Participante | null;
   seleccionar: (p: Participante | null) => void;
+  cargarParticipantes: () => Promise<void>; 
 }
 
 const ParticipantesContext = createContext<ContextType | null>(null);
@@ -21,14 +30,18 @@ export function ParticipantesProvider({ children }: { children: React.ReactNode 
   const [state, dispatch] = useReducer(participantesReducer, initialState);
 
   useEffect(() => {
-    cargarParticipantes();
+    const token = localStorage.getItem("token");
+    if (token) {                   
+      cargarParticipantes();
+    }
   }, []);
 
   async function cargarParticipantes() {
     dispatch({ type: "LOADING", payload: true });
-
     try {
-      const res = await fetch(`${API_URL}/participantes`);
+      const res = await fetch(`${API_URL}/participantes`, {
+        headers: authHeaders(),     
+      });
       const data: Participante[] = await res.json();
       dispatch({ type: "SET", payload: data });
     } catch (e: any) {
@@ -41,10 +54,9 @@ export function ParticipantesProvider({ children }: { children: React.ReactNode 
   async function agregar(nuevo: ParticipanteNuevo) {
     const res = await fetch(`${API_URL}/participantes`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),       
       body: JSON.stringify(nuevo),
     });
-
     const creado: Participante = await res.json();
     dispatch({ type: "AGREGAR", payload: creado });
   }
@@ -52,23 +64,21 @@ export function ParticipantesProvider({ children }: { children: React.ReactNode 
   async function eliminar(id: number) {
     await fetch(`${API_URL}/participantes/${id}`, {
       method: "DELETE",
+      headers: authHeaders(),       
     });
-
     dispatch({ type: "ELIMINAR", payload: id });
   }
 
   async function editar(p: Participante) {
     const res = await fetch(`${API_URL}/participantes/${p.id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),       
       body: JSON.stringify(p),
     });
-
     const actualizado: Participante = await res.json();
     dispatch({ type: "EDITAR", payload: actualizado });
   }
 
-  // 🔥 Reemplaza setEditando → seleccionar (más claro para rutas)
   const seleccionar = (p: Participante | null) => {
     dispatch({ type: "SET_EDITANDO", payload: p });
   };
@@ -84,6 +94,7 @@ export function ParticipantesProvider({ children }: { children: React.ReactNode 
         editar,
         editando: state.editando,
         seleccionar,
+        cargarParticipantes,        
       }}
     >
       {children}
@@ -93,8 +104,6 @@ export function ParticipantesProvider({ children }: { children: React.ReactNode 
 
 export function useParticipantes() {
   const ctx = useContext(ParticipantesContext);
-  if (!ctx) {
-    throw new Error("useParticipantes debe usarse dentro de ParticipantesProvider");
-  }
+  if (!ctx) throw new Error("useParticipantes debe usarse dentro de ParticipantesProvider");
   return ctx;
 }
