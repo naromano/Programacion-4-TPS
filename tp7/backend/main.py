@@ -18,7 +18,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
 
 engine = create_engine(
-    "postgresql+pg8000://postgres:Nicolasxd22@localhost:5432/tp7"
+    "postgresql+pg8000://postgres:nicolas@localhost:5432/tp7"
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -29,8 +29,8 @@ class UsuarioDB(Base):
 
     id       = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)   # guardado con hash bcrypt
-    rol      = Column(String, nullable=False)   # "ADMIN" o "CONSULTA"
+    password = Column(String, nullable=False)  
+    rol      = Column(String, nullable=False)   
 
 
 class ParticipanteDB(Base):
@@ -131,8 +131,8 @@ def seed_usuarios():
     db = SessionLocal()
     if db.query(UsuarioDB).count() == 0:
         usuarios = [
-            UsuarioDB(username="hernanxd22", password=pwd_context.hash("hola123"),    rol="ADMIN"),
-            UsuarioDB(username="consulta",   password=pwd_context.hash("consulta123"), rol="CONSULTA"),
+            UsuarioDB(username="admin", password=pwd_context.hash("admin123"),    rol="ADMIN"),
+            UsuarioDB(username="cliente",   password=pwd_context.hash("cliente123"), rol="CONSULTA"),
         ]
         db.add_all(usuarios)
         db.commit()
