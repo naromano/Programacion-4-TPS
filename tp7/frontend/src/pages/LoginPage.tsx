@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ThemeToggle from "../components/ThemeToggle";
-import { useAuth } from "../context/AuthContext";  
+import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();  
+  const { login, user } = useAuth();
 
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
@@ -14,13 +14,20 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const ok = await login(usuario, password); 
+    const ok = await login(usuario, password);
     if (ok) {
       navigate("/");
     } else {
       setError("Usuario o contraseña incorrectos");
     }
   };
+
+
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">

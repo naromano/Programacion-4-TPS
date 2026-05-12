@@ -20,6 +20,12 @@ export default function Home() {
     cargarParticipantes();
   }, []);
 
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+    }
+  }, [user]);
+
   const limpiarFiltros = () => {
     setBuscarNombre("");
     setFiltroModalidad("Todas");
