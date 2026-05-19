@@ -18,7 +18,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
 
 engine = create_engine(
-    "postgresql+pg8000://postgres:nicolas@localhost:5432/tp7"
+    "postgresql+pg8000://postgres:191700faB@localhost:5432/tp7"
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
