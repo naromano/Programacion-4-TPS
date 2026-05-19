@@ -1,6 +1,7 @@
-import { useMemo, useState, useEffect } from "react";  // 👈 useEffect
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useParticipantes } from "../context/ParticipantesContext";
 import { useAuth } from "../context/AuthContext";
+import { useKeyboardShortcut } from "../hooks";
 import Filtros from "../components/Filtros";
 import ParticipanteCard from "../components/ParticipanteCard";
 import { Link, useNavigate } from "react-router-dom";
@@ -9,12 +10,17 @@ import ThemeToggle from "../components/ThemeToggle";
 export default function Home() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const filtrosRef = useRef<HTMLInputElement>(null);
 
-  const { participantes, cargando, error, cargarParticipantes } = useParticipantes();  // 👈
+  const { participantes, cargando, error, cargarParticipantes } = useParticipantes();
 
   const [buscarNombre, setBuscarNombre] = useState("");
   const [filtroModalidad, setFiltroModalidad] = useState("Todas");
   const [filtroNivel, setFiltroNivel] = useState("Todos");
+
+  useKeyboardShortcut("b", () => {
+    filtrosRef.current?.focus();
+  }, { ctrl: true });
 
   useEffect(() => {
     cargarParticipantes();
@@ -77,6 +83,7 @@ export default function Home() {
       )}
 
       <Filtros
+        ref={filtrosRef}
         buscarNombre={buscarNombre}
         filtroModalidad={filtroModalidad}
         filtroNivel={filtroNivel}

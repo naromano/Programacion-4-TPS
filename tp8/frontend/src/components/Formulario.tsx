@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { useParticipantes } from "../context/ParticipantesContext";
 import type { ParticipanteNuevo } from "../models/Participante";
 
@@ -12,6 +12,17 @@ interface Props {
 function Formulario({ onSuccess, onCancel }: Props) {
   const { agregar, editar, editando, seleccionar } = useParticipantes();
 
+  const nombreId = useId();
+  const emailId = useId();
+  const edadId = useId();
+  const paisId = useId();
+  const modalidadId = useId();
+  const tecnologiasId = useId();
+  const nivelId = useId();
+  const aceptaTerminosId = useId();
+
+  const nombreInputRef = useRef<HTMLInputElement>(null);
+
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [edad, setEdad] = useState("");
@@ -21,6 +32,10 @@ function Formulario({ onSuccess, onCancel }: Props) {
   const [nivel, setNivel] = useState("Principiante");
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
   const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    nombreInputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (editando) {
@@ -103,8 +118,10 @@ function Formulario({ onSuccess, onCancel }: Props) {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <div>
-          <label className="block mb-2 font-semibold text-sm">Nombre *</label>
+          <label htmlFor={nombreId} className="block mb-2 font-semibold text-sm">Nombre *</label>
           <input
+            id={nombreId}
+            ref={nombreInputRef}
             type="text"
             className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg p-3 focus:border-blue-500 transition-colors"
             value={nombre}
@@ -114,8 +131,9 @@ function Formulario({ onSuccess, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="block mb-2 font-semibold text-sm">Email *</label>
+          <label htmlFor={emailId} className="block mb-2 font-semibold text-sm">Email *</label>
           <input
+            id={emailId}
             type="email"
             className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg p-3 focus:border-blue-500 transition-colors"
             value={email}
@@ -125,8 +143,9 @@ function Formulario({ onSuccess, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="block mb-2 font-semibold text-sm">Edad *</label>
+          <label htmlFor={edadId} className="block mb-2 font-semibold text-sm">Edad *</label>
           <input
+            id={edadId}
             type="number"
             className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg p-3 focus:border-blue-500 transition-colors"
             value={edad}
@@ -136,8 +155,9 @@ function Formulario({ onSuccess, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="block mb-2 font-semibold text-sm">País</label>
+          <label htmlFor={paisId} className="block mb-2 font-semibold text-sm">País</label>
           <select
+            id={paisId}
             className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg p-3 focus:border-blue-500 transition-colors"
             value={pais}
             onChange={(e) => setPais(e.target.value)}
@@ -151,42 +171,52 @@ function Formulario({ onSuccess, onCancel }: Props) {
         </div>
 
         <div className="md:col-span-2">
-          <label className="block mb-3 font-semibold text-sm">Modalidad</label>
+          <legend className="block mb-3 font-semibold text-sm">{`${modalidadId}-legend`}</legend>
           <div className="flex gap-4">
-            {["Presencial", "Virtual", "Híbrido"].map((mod) => (
-              <label key={mod} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={modalidad === mod}
-                  onChange={() => setModalidad(mod)}
-                  className="w-5 h-5 text-blue-600"
-                />
-                <span className="text-sm">{mod}</span>
-              </label>
-            ))}
+            {["Presencial", "Virtual", "Híbrido"].map((mod) => {
+              const radioId = `${modalidadId}-${mod}`;
+              return (
+                <label key={mod} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    id={radioId}
+                    type="radio"
+                    checked={modalidad === mod}
+                    onChange={() => setModalidad(mod)}
+                    className="w-5 h-5 text-blue-600"
+                    name={modalidadId}
+                  />
+                  <label htmlFor={radioId} className="text-sm cursor-pointer">{mod}</label>
+                </label>
+              );
+            })}
           </div>
         </div>
 
         <div className="md:col-span-2">
-          <label className="block mb-3 font-semibold text-sm">Tecnologías</label>
+          <legend className="block mb-3 font-semibold text-sm">{`${tecnologiasId}-legend`}</legend>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {tecnologiasDisponibles.map((tec) => (
-              <label key={tec} className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={tecnologias.includes(tec)}
-                  onChange={() => manejarTecnologia(tec)}
-                  className="w-5 h-5 text-blue-600 rounded"
-                />
-                <span className="text-sm">{tec}</span>
-              </label>
-            ))}
+            {tecnologiasDisponibles.map((tec) => {
+              const checkboxId = `${tecnologiasId}-${tec}`;
+              return (
+                <label key={tec} className="flex items-center gap-2 cursor-pointer p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                  <input
+                    id={checkboxId}
+                    type="checkbox"
+                    checked={tecnologias.includes(tec)}
+                    onChange={() => manejarTecnologia(tec)}
+                    className="w-5 h-5 text-blue-600 rounded"
+                  />
+                  <label htmlFor={checkboxId} className="text-sm cursor-pointer">{tec}</label>
+                </label>
+              );
+            })}
           </div>
         </div>
 
         <div>
-          <label className="block mb-2 font-semibold text-sm">Nivel</label>
+          <label htmlFor={nivelId} className="block mb-2 font-semibold text-sm">Nivel</label>
           <select
+            id={nivelId}
             className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg p-3 focus:border-blue-500 transition-colors"
             value={nivel}
             onChange={(e) => setNivel(e.target.value)}
@@ -200,12 +230,13 @@ function Formulario({ onSuccess, onCancel }: Props) {
         <div className="flex items-end">
           <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors w-full">
             <input
+              id={aceptaTerminosId}
               type="checkbox"
               checked={aceptaTerminos}
               onChange={(e) => setAceptaTerminos(e.target.checked)}
               className="w-5 h-5 text-blue-600 rounded"
             />
-            <span className="text-sm">Acepto los términos y condiciones *</span>
+            <label htmlFor={aceptaTerminosId} className="text-sm cursor-pointer">Acepto los términos y condiciones *</label>
           </label>
         </div>
 
