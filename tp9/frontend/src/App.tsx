@@ -5,6 +5,8 @@ import Home from "./pages/ListaPage";
 import FormularioPage from "./pages/FormularioPage";
 import EditarPage from "./pages/EditarPage";
 import LoginPage from "./pages/LoginPage";
+import CursosPage from "./pages/CursosPage";
+import { CursosSuccess, CursosFailure, CursosPending } from "./pages/CursosResult";
 import PrivateRoute from "./Routes/PrivateRoute";
 import Sinlogin from "./pages/SinlPage";
 
@@ -33,6 +35,15 @@ function App() {
             <EditarPage />
           </PrivateRoute>
         }/>
+        <Route path="/cursos" element={
+          <PrivateRoute>
+            <CursosPage />
+          </PrivateRoute>
+        }/>
+
+        <Route path="/cursos/success" element={<CursosSuccess />} />
+        <Route path="/cursos/failure" element={<CursosFailure />} />
+        <Route path="/cursos/pending" element={<CursosPending />} />
       </Routes>
     </ThemeProvider>
   );

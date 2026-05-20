@@ -3,5 +3,8 @@ uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
 psycopg2-binary==2.9.12
 pg8000==1.31.5
+python-jose[cryptography]==3.4.0
 pydantic==2.9.2
+passlib[bcrypt]==1.7.4
 python-dotenv==1.0.1
+mercadopago==2.4.0

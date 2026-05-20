@@ -8,6 +8,20 @@ from typing import List
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
+import os
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+import logging
+
+# basic logging for debugging and production insights
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+logger = logging.getLogger(__name__)
+
+try:
+    import mercadopago
+except Exception:
+    mercadopago = None
 
 
 SECRET_KEY = "supersecretkey123"   
@@ -223,3 +237,51 @@ def eliminar_participante(
 
     db.delete(participante)
     db.commit()
+
+
+# Mercado Pago integration - create a Checkout Pro preference
+@app.post("/create_preference")
+def create_preference(data: dict):
+    if mercadopago is None:
+        raise HTTPException(status_code=500, detail="mercadopago SDK no instalado")
+
+    access_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN") or os.getenv("MERCADO_PAGO_ACCESS_TOKEN")
+    if not access_token:
+        raise HTTPException(status_code=500, detail="MERCADOPAGO_ACCESS_TOKEN no configurado en el servidor")
+
+    mp = mercadopago.SDK(access_token)
+
+    frontend_base = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
+    title = data.get("title", "Curso")
+    price = float(data.get("price", 0))
+
+    preference_data = {
+        "items": [
+            {
+                "title": title,
+                "quantity": 1,
+                "unit_price": price,
+            }
+        ],
+        "back_urls": {
+            "success": f"{frontend_base}/cursos/success",
+            "failure": f"{frontend_base}/cursos/failure",
+            "pending": f"{frontend_base}/cursos/pending",
+        },
+    }
+
+    preference = mp.preference().create(preference_data)
+    status = preference.get("status")
+    resp = preference.get("response", {})
+    init_point = resp.get("init_point")
+
+    # Log full response for diagnostics when things go wrong
+    logger.info("Mercado Pago preference status=%s id=%s", status, resp.get("id"))
+    logger.debug("Mercado Pago preference full response: %s", resp)
+
+    if status != 201 or not init_point:
+        error_detail = resp.get("message") or resp.get("error") or "No se pudo crear la preferencia de pago"
+        logger.error("Fallo al crear preferencia Mercado Pago: %s", error_detail)
+        raise HTTPException(status_code=500, detail=error_detail)
+
+    return {"init_point": init_point, "preference_id": resp.get("id")}
