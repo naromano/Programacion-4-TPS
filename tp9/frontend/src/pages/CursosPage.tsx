@@ -2,12 +2,12 @@ import { api } from "../services/api";
 // estilos incluidos en el mismo archivo (JSX <style>) según preferencia
 
 const cursos = [
-  { id: 1, title: "Curso React", price: 25000, desc: "Fundamentos y hooks" },
-  { id: 2, title: "Curso DBA", price: 40000, desc: "Diseño y optimización" },
-  { id: 3, title: "Curso Node.js", price: 30000, desc: "APIs y backend" },
-  { id: 4, title: "Curso Python", price: 28000, desc: "Automatización y data" },
-  { id: 5, title: "Curso DevOps", price: 45000, desc: "CI/CD y despliegues" },
-  { id: 6, title: "Curso UX/UI", price: 22000, desc: "Diseño centrado en usuario" },
+  { id: 1, title: "Curso React", price: 1500, desc: "Fundamentos y hooks" },
+  { id: 2, title: "Curso DBA", price: 1500, desc: "Diseño y optimización" },
+  { id: 3, title: "Curso Node.js", price: 1500, desc: "APIs y backend" },
+  { id: 4, title: "Curso Python", price: 1500, desc: "Automatización y data" },
+  { id: 5, title: "Curso DevOps", price: 1500, desc: "CI/CD y despliegues" },
+  { id: 6, title: "Curso UX/UI", price: 1500, desc: "Diseño centrado en usuario" },
 ];
 
 export default function CursosPage() {

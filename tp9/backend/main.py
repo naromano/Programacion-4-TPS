@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
@@ -24,16 +25,15 @@ except Exception:
     mercadopago = None
 
 
-SECRET_KEY = "supersecretkey123"   
+SECRET_KEY = os.getenv("JWT_SECRET", "supersecretkey123")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
 
-engine = create_engine(
-    "postgresql+pg8000://postgres:nicolas@localhost:5432/tp7"
-)
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+pg8000://postgres:postgres@localhost:5432/tp7")
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -142,18 +142,22 @@ def verificar_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_s
 
 
 def seed_usuarios():
-    db = SessionLocal()
-    if db.query(UsuarioDB).count() == 0:
-        usuarios = [
-            UsuarioDB(username="admin", password=pwd_context.hash("admin123"),    rol="ADMIN"),
-            UsuarioDB(username="cliente",   password=pwd_context.hash("cliente123"), rol="CONSULTA"),
-        ]
-        db.add_all(usuarios)
-        db.commit()
-    db.close()
+    try:
+        db = SessionLocal()
+        print(">>> COUNT:", db.query(UsuarioDB).count())
+        if db.query(UsuarioDB).count() == 0:
+            usuarios = [
+                UsuarioDB(username="admin", password=pwd_context.hash("admin123"), rol="ADMIN"),
+                UsuarioDB(username="cliente", password=pwd_context.hash("cliente123"), rol="CONSULTA"),
+            ]
+            db.add_all(usuarios)
+            db.commit()
+            print(">>> Usuarios creados OK")
+        db.close()
+    except Exception as e:
+        print(">>> ERROR en seed:", e)
 
 seed_usuarios()
-
 
 @app.post("/login", response_model=TokenResponse)
 def login(datos: LoginRequest, db: Session = Depends(get_db)):
@@ -245,16 +249,16 @@ def create_preference(data: dict):
     if mercadopago is None:
         raise HTTPException(status_code=500, detail="mercadopago SDK no instalado")
 
-    access_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN") or os.getenv("MERCADO_PAGO_ACCESS_TOKEN")
+    access_token = os.getenv("MP_ACCESS_TOKEN")
     if not access_token:
-        raise HTTPException(status_code=500, detail="MERCADOPAGO_ACCESS_TOKEN no configurado en el servidor")
+        raise HTTPException(status_code=500, detail="MP_ACCESS_TOKEN no configurado en el servidor")
 
     mp = mercadopago.SDK(access_token)
 
-    frontend_base = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
     title = data.get("title", "Curso")
     price = float(data.get("price", 0))
 
+    ngrok_url = os.getenv("NGROK_URL", "http://localhost:8000")
     preference_data = {
         "items": [
             {
@@ -264,24 +268,44 @@ def create_preference(data: dict):
             }
         ],
         "back_urls": {
-            "success": f"{frontend_base}/cursos/success",
-            "failure": f"{frontend_base}/cursos/failure",
-            "pending": f"{frontend_base}/cursos/pending",
+            "success": f"{ngrok_url}/redirect/success",
+            "failure": f"{ngrok_url}/redirect/failure",
+            "pending": f"{ngrok_url}/redirect/pending",
         },
+        "notification_url": os.getenv("MP_WEBHOOK_URL", ""),
+        "auto_return": "approved",
     }
 
     preference = mp.preference().create(preference_data)
-    status = preference.get("status")
+    status_code = preference.get("status")
     resp = preference.get("response", {})
     init_point = resp.get("init_point")
 
-    # Log full response for diagnostics when things go wrong
-    logger.info("Mercado Pago preference status=%s id=%s", status, resp.get("id"))
+    logger.info("Mercado Pago preference status=%s id=%s", status_code, resp.get("id"))
     logger.debug("Mercado Pago preference full response: %s", resp)
 
-    if status != 201 or not init_point:
+    if status_code not in (200, 201) or not init_point:
         error_detail = resp.get("message") or resp.get("error") or "No se pudo crear la preferencia de pago"
         logger.error("Fallo al crear preferencia Mercado Pago: %s", error_detail)
         raise HTTPException(status_code=500, detail=error_detail)
 
     return {"init_point": init_point, "preference_id": resp.get("id")}
+
+
+@app.get("/redirect/{status}")
+def redirect_after_pago(status: str):
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    return RedirectResponse(url=f"{frontend_url}/?pago={status}")
+
+
+@app.post("/webhook")
+async def webhook(request: Request):
+    try:
+        body = {}
+        if request.headers.get("content-type", "").startswith("application/json"):
+            body = await request.json()
+        logger.info("Webhook MP recibido: %s", body)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.exception("Error procesando webhook MP")
+        return {"status": "error", "reason": str(e)}
